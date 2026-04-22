@@ -15,41 +15,71 @@ import numpy as np
 import pickle
 from hamster_env import HamsterEnv
 
-
-# ── settings ──────────────────────────────────────────────────────────────────
-EPISODES  = 50000   # 50K+ episodes -> exceptional achievement (10 pts)
-LR        = 0.3     # higher LR helps Q-values update faster on small state space
-GAMMA     = 0.95    # how much future rewards matter (discount factor)
-EPS_START = 1.0     # start by exploring randomly 100% of the time
-EPS_END   = 0.05    # never go below 5% random (always explore a little)
-EPS_DECAY = 0.9998  # slower decay = more exploration time
+EPISODES  = 50000
+LR        = 0.5     # higher LR for faster convergence
+GAMMA     = 0.95
+EPS_START = 1.0
+EPS_END   = 0.05
+EPS_DECAY = 0.9998
 MAX_STEPS = 200
 
 
 # ── helper: turn observation into a hashable state ────────────────────────────
 def get_state(obs, grid_size=5):
     """
-    Convert observation to a simple hashable state.
+    Very simple state: just hamster position + nearest seed/magic direction.
 
-    I keep it very simple on purpose -- just the hamster position
-    and where each item is (as grid coordinates, not a full binary map).
-    This keeps the Q-table small enough to actually learn from.
+    I tried using full binary maps but state space was 2^50 -- way too large
+    for a Q-table. The agent almost never visited the same state twice.
 
-    Previous version used full binary maps (75 values) which made the
-    state space way too large -- the agent almost never saw the same
-    state twice, so Q-values never updated usefully.
+    This version encodes only what the agent actually needs:
+      - where am I? (row, col)
+      - where is the nearest reward? (direction: up/down/left/right/here)
+      - where is the nearest trap? (direction)
+
+    This keeps state space tiny (~25 * 5 * 5 = 625 states) so Q-values
+    update many times per state and the agent actually learns.
     """
     n = grid_size * grid_size
 
     row = int(round(obs[0] * (grid_size - 1)))
     col = int(round(obs[1] * (grid_size - 1)))
 
-    # just use seed and magic locations -- traps are secondary
-    seed_map  = tuple(int(round(v)) for v in obs[2      : 2 + n])
-    magic_map = tuple(int(round(v)) for v in obs[2 + n  : 2 + 2*n])
+    # find nearest seed or magic from the maps
+    seed_map  = obs[2      : 2 + n].reshape(grid_size, grid_size)
+    magic_map = obs[2 + n  : 2 + 2*n].reshape(grid_size, grid_size)
+    trap_map  = obs[2 + 2*n: 2 + 3*n].reshape(grid_size, grid_size)
 
-    # skip trap_map and score -- keeps state space manageable
-    return (row, col, seed_map, magic_map)
+    def nearest_dir(item_map, cur_r, cur_c):
+        """Return direction to nearest item as a simple code."""
+        best_d = float("inf")
+        best_r, best_c = -1, -1
+        for r in range(grid_size):
+            for c in range(grid_size):
+                if item_map[r, c] > 0.5:
+                    d = abs(r - cur_r) + abs(c - cur_c)
+                    if d < best_d:
+                        best_d = d
+                        best_r, best_c = r, c
+        if best_r == -1:
+            return 4   # no item found
+        dr = best_r - cur_r
+        dc = best_c - cur_c
+        if abs(dr) >= abs(dc):
+            return 0 if dr > 0 else 1   # down or up
+        else:
+            return 2 if dc > 0 else 3   # right or left
+
+    # combine seed and magic maps for nearest goal
+    goal_map = np.clip(seed_map + magic_map, 0, 1)
+    goal_dir = nearest_dir(goal_map, row, col)
+    trap_dir = nearest_dir(trap_map, row, col)
+
+    return (row, col, goal_dir, trap_dir)
+
+
+
+
 
 
 # ── helper: look up Q-values, defaulting to zero for unseen states ────────────

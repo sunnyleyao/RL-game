@@ -33,19 +33,18 @@ from hamster_env import HamsterEnv
 # ── check if GPU is available ─────────────────────────────────────────────────
 # this covers "trained using GPU/TPU/CUDA" (3 pts) -- falls back to CPU if no GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using: {device}")
 
 
 # ── settings ──────────────────────────────────────────────────────────────────
-EPISODES      = 50000   # 50K+ episodes for exceptional achievement (10 pts)
-LR            = 1e-3
+EPISODES      = 50000
+LR            = 5e-4    # lower LR = more stable training
 GAMMA         = 0.95
 EPS_START     = 1.0
 EPS_END       = 0.05
-EPS_DECAY     = 0.9995
-BATCH_SIZE    = 64
-BUFFER_SIZE   = 10000
-TARGET_UPDATE = 200     # copy main network weights to target every 200 steps
+EPS_DECAY     = 0.9998  # much slower decay -- agent explores for longer
+BATCH_SIZE    = 32      # smaller batch = more frequent updates
+BUFFER_SIZE   = 5000    # smaller buffer = more recent experience
+TARGET_UPDATE = 100     # update target network more frequently
 MAX_STEPS     = 200
 
 
@@ -206,8 +205,10 @@ def train(shaped_reward=False, seed=42):
                 break
 
         # decay epsilon and step the LR scheduler
+        # note: scheduler.step() must come after optimizer.step()
         eps = max(EPS_END, eps * EPS_DECAY)
-        scheduler.step()
+        if len(ep_losses) > 0:
+            scheduler.step()
 
         all_rewards.append(total_r)
         all_steps.append(info["steps"])

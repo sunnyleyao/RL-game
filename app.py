@@ -24,18 +24,19 @@ from hamster_env import HamsterEnv, EMPTY, SEED, MAGIC, TAPE, STACK
 from q_learning import get_state, get_q_values, MAX_STEPS
 from dqn import QNetwork, load_model, device
 
-# ── page config ───────────────────────────────────────────────────────────────
+#page
 st.set_page_config(
-    page_title="🐹 Hamster RL",
+    page_title="🐹 Tiny Survivor",
     page_icon="🐹",
     layout="centered",
 )
 
-st.title("🐹 Hamster RL")
+st.title("🐹 Tiny Survivor")
 st.markdown("""
-Watch a trained RL agent control a hamster on a 5×5 grid.
-The hamster collects **seeds (+5)** and **magic (+10)** while avoiding
-**tape (-5)** and **stacks (-5)**. Each step also costs **-1**.
+Help me! I’m Toto, and I’m stuck in this box.
+Watch me explore, collect seeds and Helsius Energy Drink,
+and dodge the cat’s paw and the bin.
+Cheer for me!
 
 Win condition: collect all seeds and magic before score hits 0.
 """)
@@ -85,30 +86,61 @@ def load_dqn(variant):
 
 
 # ── draw the grid as an HTML table ───────────────────────────────────────────
-CELL_EMOJI = {
-    EMPTY: "⬜",
-    SEED:  "assets/seed.png",
-    MAGIC: "✨",
-    TAPE:  "📼",
-    STACK: "assets/stack.png",
-}
-HAMSTER_IMG = "assets/hamster.png"
+import base64
 
-def draw_grid(grid, hamster_pos,use_images=True):
+def load_img_base64(path):
+    """Convert local image to base64 so it can be embedded in HTML."""
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+    ext = path.split(".")[-1]
+    return f"data:image/{ext};base64,{data}"
+
+def draw_grid(grid, hamster_pos, use_images=False):
     """
-    Render the 5x5 grid as a simple HTML table with emojis.
-    Streamlit can display raw HTML so this gives a clean visual
-    without needing pygame.
+    Render the 5x5 grid as an HTML table.
+
+    use_images=False  -> uses emojis (default, no setup needed)
+    use_images=True   -> uses your own images from assets/ folder
+                         just drop your png files in assets/ and set this to True
     """
+    if use_images:
+        CELL_IMG = {
+            EMPTY: load_img_base64("assets/empty.png"),
+            SEED:  load_img_base64("assets/seed.png"),
+            MAGIC: load_img_base64("assets/magic.png"),
+            TAPE:  load_img_base64("assets/tape.png"),
+            STACK: load_img_base64("assets/stack.png"),
+        }
+        HAMSTER_B64 = load_img_base64("assets/hamster.png")
+
+        def cell_content(cell_type, is_hamster):
+            if is_hamster:
+                return f'<img src="{HAMSTER_B64}" width="100" height="100" style="object-fit:contain;">'
+            src = CELL_IMG.get(cell_type, CELL_IMG[EMPTY])
+            return f'<img src="{src}" width="100" height="100" style="object-fit:contain;">'
+    else:
+        CELL_EMOJI = {
+            EMPTY: "⬜",
+            SEED:  "🌱",
+            MAGIC: "✨",
+            TAPE:  "📼",
+            STACK: "🪨",
+        }
+        def cell_content(cell_type, is_hamster):
+            if is_hamster:
+                return "🐹"
+            return CELL_EMOJI.get(cell_type, "⬜")
+
     html = """
     <style>
       table.hamster { border-collapse: collapse; margin: auto; }
       table.hamster td {
-        width: 60px; height: 60px;
+        width: 110px; height: 110px;
         text-align: center; font-size: 28px;
-        border: 2px solid #ccc;
+        border: 3px solid #d4b896;
         background: #fdf6e3;
-        border-radius: 6px;
+        border-radius: 8px;
+        padding: 5px;
       }
       table.hamster td.hamster-cell { background: #ffe0b2; }
     </style>
@@ -119,11 +151,8 @@ def draw_grid(grid, hamster_pos,use_images=True):
         for c in range(grid.shape[1]):
             is_hamster = (r, c) == hamster_pos
             cell_class = "hamster-cell" if is_hamster else ""
-            if is_hamster:
-                emoji = "🐹"
-            else:
-                emoji = CELL_EMOJI.get(grid[r, c], "⬜")
-            html += f'<td class="{cell_class}">{emoji}</td>'
+            content    = cell_content(grid[r, c], is_hamster)
+            html += f'<td class="{cell_class}">{content}</td>'
         html += "</tr>"
     html += "</table>"
     return html
@@ -159,7 +188,7 @@ def run_episode(agent_type, model_or_table, shaped, seed, delay):
 
         # draw current state BEFORE taking the step
         state  = env.get_state()
-        html   = draw_grid(state["grid"], state["hamster_pos"])
+        html   = draw_grid(state["grid"], state["hamster_pos"], use_images=True)
         grid_placeholder.markdown(html, unsafe_allow_html=True)
 
         stats_placeholder.markdown(f"""
@@ -185,7 +214,7 @@ def run_episode(agent_type, model_or_table, shaped, seed, delay):
     # draw final state
     final_state = env.get_state()
     grid_placeholder.markdown(
-        draw_grid(final_state["grid"], final_state["hamster_pos"]),
+        draw_grid(final_state["grid"], final_state["hamster_pos"], use_images=True),
         unsafe_allow_html=True
     )
     env.close()
@@ -232,7 +261,7 @@ else:
     obs, _ = env.reset(seed=int(episode_seed))
     state  = env.get_state()
     st.markdown(
-        draw_grid(state["grid"], state["hamster_pos"]),
+        draw_grid(state["grid"], state["hamster_pos"], use_images=True),
         unsafe_allow_html=True
     )
     env.close()

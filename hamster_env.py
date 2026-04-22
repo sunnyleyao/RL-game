@@ -60,7 +60,6 @@ class HamsterEnv(gym.Env):
     Custom Hamster grid-world Gymnasium environment.
 
     Parameters
-    ----------
     grid_size : int
         Side length of the square grid. Default 5.
     shaped_reward : bool

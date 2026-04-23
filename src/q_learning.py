@@ -1,15 +1,4 @@
-"""
-q_learning.py
 
-I implemented tabular Q-learning from scratch for my HamsterEnv.
-The idea is simple: keep a big table (dictionary) of Q-values for every
-(state, action) pair, and update them as the hamster explores the map.
-
-This covers:
-  - Tabular Q-learning with epsilon-greedy (5 pts)
-  - Used Gymnasium API (3 pts)
-  - Demonstrated convergence via reward plots (3 pts) -- logs saved here, plotted in compare.py
-"""
 
 import numpy as np
 import pickle
@@ -23,31 +12,14 @@ EPS_END   = 0.05
 EPS_DECAY = 0.9998
 MAX_STEPS = 200
 
-
-# ── helper: turn observation into a hashable state ────────────────────────────
 def get_state(obs, grid_size=5):
-    """
-    Very simple state: just hamster position + nearest seed/magic direction.
-
-    I tried using full binary maps but state space was 2^50 -- way too large
-    for a Q-table. The agent almost never visited the same state twice.
-
-    This version encodes only what the agent actually needs:
-      - where am I? (row, col)
-      - where is the nearest reward? (direction: up/down/left/right/here)
-      - where is the nearest trap? (direction)
-
-    This keeps state space tiny (~25 * 5 * 5 = 625 states) so Q-values
-    update many times per state and the agent actually learns.
-    """
     n = grid_size * grid_size
 
     row = int(round(obs[0] * (grid_size - 1)))
     col = int(round(obs[1] * (grid_size - 1)))
 
-    # find nearest seed or magic from the maps
-    seed_map  = obs[2      : 2 + n].reshape(grid_size, grid_size)
-    magic_map = obs[2 + n  : 2 + 2*n].reshape(grid_size, grid_size)
+    seed_map  = obs[2 : 2 + n].reshape(grid_size, grid_size)
+    magic_map = obs[2 + n: 2 + 2*n].reshape(grid_size, grid_size)
     trap_map  = obs[2 + 2*n: 2 + 3*n].reshape(grid_size, grid_size)
 
     def nearest_dir(item_map, cur_r, cur_c):
@@ -77,34 +49,18 @@ def get_state(obs, grid_size=5):
 
     return (row, col, goal_dir, trap_dir)
 
-
-
-
-
-
-# ── helper: look up Q-values, defaulting to zero for unseen states ────────────
 def get_q_values(q_table, state):
     if state not in q_table:
-        q_table[state] = np.zeros(4)   # 4 actions: up, down, left, right
+        q_table[state] = np.zeros(4) 
     return q_table[state]
 
-
-# ── main training function ────────────────────────────────────────────────────
 def train(shaped_reward=False, seed=42):
-    """
-    Train a Q-learning agent on HamsterEnv.
-
-    shaped_reward=False -> sparse reward (only item pickups)
-    shaped_reward=True  -> adds distance bonus toward nearest goal
-    Both variants are used in the ablation study.
-    """
     np.random.seed(seed)
     env = HamsterEnv(grid_size=5, shaped_reward=shaped_reward, max_steps=MAX_STEPS)
 
-    q_table = {}   # state -> array of 4 Q-values
+    q_table = {}  
     eps     = EPS_START
 
-    # I'll save these to make learning curve plots later
     all_rewards = []
     all_steps   = []
     all_wins    = []
@@ -116,19 +72,14 @@ def train(shaped_reward=False, seed=42):
         won       = False
 
         for _ in range(MAX_STEPS):
-
-            # epsilon-greedy: explore randomly or pick best known action
             if np.random.random() < eps:
                 action = env.action_space.sample()
             else:
                 action = int(np.argmax(get_q_values(q_table, state)))
 
-            # take the action
             next_obs, reward, done, truncated, info = env.step(action)
             next_state = get_state(next_obs)
 
-            # Q-learning update rule:
-            # Q(s,a) = Q(s,a) + alpha * (reward + gamma * max(Q(s')) - Q(s,a))
             q_now  = get_q_values(q_table, state)
             q_next = get_q_values(q_table, next_state)
             q_now[action] += LR * (reward + GAMMA * np.max(q_next) - q_now[action])
@@ -140,7 +91,6 @@ def train(shaped_reward=False, seed=42):
                 won = info.get("win", False)
                 break
 
-        # decay epsilon after each episode
         eps = max(EPS_END, eps * EPS_DECAY)
 
         all_rewards.append(total_r)
@@ -154,7 +104,6 @@ def train(shaped_reward=False, seed=42):
 
     env.close()
 
-    # save everything
     label = "shaped" if shaped_reward else "sparse"
     with open(f"q_table_{label}.pkl", "wb") as f:
         pickle.dump(q_table, f)
@@ -166,15 +115,8 @@ def train(shaped_reward=False, seed=42):
     return q_table, logs
 
 
-# ── evaluation ────────────────────────────────────────────────────────────────
+# evaluation
 def evaluate(q_table, shaped_reward=False, n_episodes=500):
-    """
-    Run the trained agent with no exploration (eps=0) and measure:
-      1. Average total reward       (metric 1)
-      2. Win rate                   (metric 2)
-      3. Average steps per episode  (metric 3)
-    Three metrics -> 3 pts on rubric.
-    """
     import time
     env     = HamsterEnv(grid_size=5, shaped_reward=shaped_reward)
     rewards = []
@@ -184,16 +126,16 @@ def evaluate(q_table, shaped_reward=False, n_episodes=500):
 
     for _ in range(n_episodes):
         obs, info = env.reset()
-        state     = get_state(obs)
-        total_r   = 0.0
+        state = get_state(obs)
+        total_r = 0.0
 
         for _ in range(MAX_STEPS):
-            t0     = time.perf_counter()
+            t0 = time.perf_counter()
             action = int(np.argmax(get_q_values(q_table, state)))
             times.append(time.perf_counter() - t0)
 
             obs, r, done, truncated, info = env.step(action)
-            state   = get_state(obs)
+            state = get_state(obs)
             total_r += r
             if done or truncated:
                 break
@@ -205,20 +147,20 @@ def evaluate(q_table, shaped_reward=False, n_episodes=500):
     env.close()
 
     results = {
-        "avg_reward":       round(float(np.mean(rewards)), 3),
-        "win_rate_%":       round(float(np.mean(wins)) * 100, 2),
-        "avg_steps":        round(float(np.mean(steps)), 2),
-        "avg_inference_ms": round(float(np.mean(times)) * 1000, 4),  # inference time (3 pts)
+        "avg_reward":round(float(np.mean(rewards)), 3),
+        "win_rate_%": round(float(np.mean(wins)) * 100, 2),
+        "avg_steps":round(float(np.mean(steps)), 2),
+        "avg_inference_ms": round(float(np.mean(times)) * 1000, 4),
     }
 
-    print("\n── Q-Learning Eval ─────────────────────────")
+    print("\n Q-Learning Eval ")
     for k, v in results.items():
         print(f"  {k:<22}: {v}")
 
     return results
 
 
-# ── run ───────────────────────────────────────────────────────────────────────
+# main
 if __name__ == "__main__":
     print("Training Q-Learning (sparse reward) ...")
     q_table, logs = train(shaped_reward=False)

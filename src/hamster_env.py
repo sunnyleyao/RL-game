@@ -1,33 +1,3 @@
-"""
-hamster_env.py — Custom Hamster Gymnasium Environment
-
-Map: NxN grid (default 5x5)
-Hamster starts at top-left corner (0, 0).
-
-Items (randomly placed each episode):
-    seed   : +5 reward
-    magic  : +10 reward
-    tape   : -5 reward
-    stack  : -5 reward
-
-Termination:
-    Win      — all seeds and magic collected
-    Lose     — score drops to 0 or below
-    Truncate — max_steps reached
-
-Each step costs -1 (movement penalty).
-
-Observation (flat float32 vector):
-    [hamster_row, hamster_col,   # normalized to [0,1]
-     seed_map (flattened),       # binary, 1 if seed present
-     magic_map (flattened),      # binary, 1 if magic present
-     trap_map (flattened),       # binary, 1 if tape or stack present
-     score_norm]                 # score / 100, clipped to [0,1]
-
-Action space: Discrete(4)
-    0 = up, 1 = down, 2 = left, 3 = right
-"""
-
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -56,18 +26,6 @@ ITEM_SYMBOL = {
 
 
 class HamsterEnv(gym.Env):
-    """
-    Custom Hamster grid-world Gymnasium environment.
-
-    Parameters
-    grid_size : int
-        Side length of the square grid. Default 5.
-    shaped_reward : bool
-        If True, add a small bonus inversely proportional to distance
-        to the nearest seed/magic. Used in ablation experiments.
-    max_steps : int
-        Maximum steps before episode is truncated.
-    """
 
     metadata = {"render_modes": ["ansi"]}
 
@@ -80,7 +38,6 @@ class HamsterEnv(gym.Env):
 
         n = grid_size * grid_size
 
-        # obs: [row, col] + seed_map + magic_map + trap_map + [score_norm]
         obs_dim = 2 + n + n + n + 1
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_dim,), dtype=np.float32
@@ -89,12 +46,11 @@ class HamsterEnv(gym.Env):
         # 0=up  1=down  2=left  3=right
         self.action_space = spaces.Discrete(4)
 
-        # placeholders — populated in reset()
-        self.grid        = None
+        self.grid = None
         self.hamster_pos = None
-        self.score       = None
-        self.steps       = None
-        self.items_left  = None
+        self.score = None
+        self.steps = None
+        self.items_left = None
 
 
     def _random_pos(self, exclude: set):
@@ -112,7 +68,7 @@ class HamsterEnv(gym.Env):
         n_tape   = 1
         n_stack  = 1
 
-        taken = {(0, 0)}   # start position
+        taken = {(0, 0)}
 
         for _ in range(n_seeds):
             r, c = self._random_pos(taken)
@@ -169,10 +125,10 @@ class HamsterEnv(gym.Env):
 
     def _get_info(self):
         return {
-            "score":      self.score,
-            "steps":      self.steps,
+            "score": self.score,
+            "steps": self.steps,
             "items_left": self.items_left,
-            "pos":        self.hamster_pos,
+            "pos": self.hamster_pos,
         }
 
     def _nearest_goal_dist(self):
@@ -191,7 +147,7 @@ class HamsterEnv(gym.Env):
 
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
         self.hamster_pos = (0, 0)
-        self.score = 50      # give agent enough steps to find rewards before dying
+        self.score = 50
         self.steps = 0
 
         self._place_items()
@@ -216,12 +172,12 @@ class HamsterEnv(gym.Env):
         # item interaction
         cell = self.grid[self.hamster_pos]
         if cell != EMPTY:
-            item_r       = ITEM_REWARD[cell]
-            reward      += item_r
-            self.score  += item_r
+            item_r = ITEM_REWARD[cell]
+            reward += item_r
+            self.score += item_r
             if cell in (SEED, MAGIC):
                 self.items_left -= 1
-            self.grid[self.hamster_pos] = EMPTY   # consume item
+            self.grid[self.hamster_pos] = EMPTY 
 
         # shaped reward (ablation variant)
         if self.shaped_reward and self.items_left > 0:
@@ -229,9 +185,9 @@ class HamsterEnv(gym.Env):
             reward += 0.5 / (d + 1)
 
         # termination
-        win       = self.items_left == 0
-        lose      = self.score <= 0
-        done      = win or lose
+        win = self.items_left == 0
+        lose = self.score <= 0
+        done = win or lose
         truncated = self.steps >= self.max_steps
 
         if win:
@@ -243,7 +199,7 @@ class HamsterEnv(gym.Env):
 
         return self._get_obs(), reward, done, truncated, info
 
-    # ── render (terminal only) ────────────────────────────────────────────────
+    # render for debug
 
     def render(self):
         """Print ASCII map to terminal. Call manually when debugging."""
@@ -267,10 +223,10 @@ class HamsterEnv(gym.Env):
         Useful for debugging and building your own custom visualizations.
         """
         return {
-            "grid":        self.grid.copy(),
+            "grid": self.grid.copy(),
             "hamster_pos": self.hamster_pos,
-            "score":       self.score,
-            "steps":       self.steps,
+            "score": self.score,
+            "steps": self.steps,
             "items_left":  self.items_left,
         }
 

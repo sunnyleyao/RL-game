@@ -1,34 +1,3 @@
-"""
-compare.py
-
-This is where I compare Q-Learning vs DQN, and also run my ablation study.
-
-My main research question is:
-  "In the same custom environment, does DQN actually learn better than
-   tabular Q-learning, and does reward shaping help either of them?"
-
-To answer this I run 4 experiments:
-  1. Q-Learning  + sparse reward
-  2. Q-Learning  + shaped reward
-  3. DQN         + sparse reward
-  4. DQN         + shaped reward
-
-Then I compare them on three metrics:
-  - Average reward
-  - Win rate
-  - Average steps to finish
-
-This covers:
-  - Compared multiple model architectures quantitatively (7 pts)
-  - Ablation study with at least 2 independent design choices (7 pts)
-    (choice 1: algorithm -- Q-learning vs DQN)
-    (choice 2: reward function -- sparse vs shaped)
-  - Used at least 3 evaluation metrics (3 pts)
-  - Demonstrated convergence via learning curves (3 pts)
-  - Both qualitative and quantitative evaluation (5 pts)
-  - Documented 2+ iterations of improvement (5 pts)
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -50,7 +19,6 @@ def smooth(values, window=500):
     return smoothed
 
 
-# plot learning curves 
 def plot_learning_curves():
     """
     Load all 4 training logs and plot reward over episodes.
@@ -93,7 +61,7 @@ def plot_learning_curves():
     print("Saved learning_curves.png")
 
 
-# ── 2. plot win rate over training ────────────────────────────────────────────
+# plot win rate over training
 def plot_win_rates():
     """
     Win rate over time -- a more intuitive metric than raw reward.
@@ -131,21 +99,8 @@ def plot_win_rates():
     print("Saved win_rates.png")
 
 
-# ── 3. ablation table ─────────────────────────────────────────────────────────
+# ablation table 
 def run_ablation():
-    """
-    This is my ablation study (7 pts).
-
-    I systematically vary two independent design choices:
-      - Algorithm:       Q-Learning vs DQN
-      - Reward function: sparse vs shaped
-
-    Each combination is evaluated over 500 greedy episodes.
-    Results go into a 2x2 summary table.
-
-    This is NOT just changing hyperparameters -- these are real architectural
-    and methodological decisions that affect how the agent learns.
-    """
     obs_dim = HamsterEnv().observation_space.shape[0]
     results = {}
 
@@ -205,19 +160,13 @@ def run_ablation():
 
     print("=" * 65)
 
-    # also save as npy for the writeup
     np.save("ablation_results.npy", results)
     print("\nSaved ablation_results.npy")
 
     return results
 
 
-# ── 4. DQN loss curve ─────────────────────────────────────────────────────────
 def plot_loss_curve():
-    """
-    Plot the DQN training loss over time.
-    A decreasing loss confirms the network is actually learning.
-    """
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.set_title("DQN Training Loss")
 
@@ -239,7 +188,6 @@ def plot_loss_curve():
     print("Saved dqn_loss.png")
 
 
-# ── 5. qualitative discussion helper ─────────────────────────────────────────
 def print_qualitative_summary(results):
     """
     Write out a brief qualitative summary alongside the numbers (5 pts).
@@ -291,7 +239,7 @@ def print_qualitative_summary(results):
     print("=" * 65)
 
 
-# ── main ──────────────────────────────────────────────────────────────────────
+# main 
 if __name__ == "__main__":
     print("=== Plotting learning curves ===")
     plot_learning_curves()

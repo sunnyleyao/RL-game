@@ -1,34 +1,10 @@
-"""
-dqn.py
-
-I implemented DQN (Deep Q-Network) from scratch using PyTorch.
-DQN is basically Q-learning but instead of a table, I use a neural network
-to approximate Q-values. This lets it handle more complex state spaces.
-
-The two key things that make DQN work (vs just a plain neural network):
-  1. Experience Replay  -- store past transitions, train on random batches
-  2. Target Network     -- a frozen copy of the network to stabilize training
-
-This covers:
-  - Developed DQN with experience replay + target network (10 pts)
-  - Custom neural network architecture in PyTorch (5 pts)
-  - Layer normalization (3 pts)
-  - Learning rate scheduling (3 pts)
-  - Gradient clipping (3 pts)
-  - GPU training if available (3 pts)
-  - Used Gymnasium API (3 pts)
-  - Demonstrated convergence via reward plots (3 pts)
-  - Inference time measurement (3 pts)
-"""
-
 import numpy as np
-try:
-    import torch
-    import torch.nn as nn
-    import torch.optim as optim
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+TORCH_AVAILABLE = True
+
 from collections import deque
 import random
 from src.hamster_env import HamsterEnv
@@ -48,20 +24,12 @@ MAX_STEPS     = 200
 
 
 class QNetwork(nn.Module):
-    """
-    A simple 3-layer MLP.
-    Takes in the observation vector and outputs one Q-value per action.
-
-    I used LayerNorm after each hidden layer because it stabilizes training
-    and prevents the Q-values from blowing up early on.
-    (LayerNorm -> 3 pts on rubric)
-    """
     def __init__(self, obs_dim, n_actions=4):
         super().__init__()
 
         self.network = nn.Sequential(
             nn.Linear(obs_dim, 128),
-            nn.LayerNorm(128),     # stabilizes training (3 pts)
+            nn.LayerNorm(128),
             nn.ReLU(),
 
             nn.Linear(128, 128),
@@ -75,17 +43,8 @@ class QNetwork(nn.Module):
         return self.network(x)
 
 
-# ── Replay Buffer ─────────────────────────────────────────────────────────────
+# Replay Buffer
 class ReplayBuffer:
-    """
-    Stores past (state, action, reward, next_state, done) transitions.
-
-    Why do we need this?
-    If we just train on each transition right as it happens, the training
-    data is highly correlated (consecutive steps in the same episode).
-    Random sampling from this buffer breaks that correlation and makes
-    training much more stable.
-    """
     def __init__(self, capacity):
         self.memory = deque(maxlen=capacity)
 
@@ -107,15 +66,8 @@ class ReplayBuffer:
         return len(self.memory)
 
 
-# ── training ──────────────────────────────────────────────────────────────────
+# training 
 def train(shaped_reward=False, seed=42):
-    """
-    Train the DQN agent on HamsterEnv.
-
-    shaped_reward flag is for the ablation experiment:
-      False -> sparse reward only
-      True  -> adds a small bonus for moving toward goals
-    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -235,15 +187,8 @@ def train(shaped_reward=False, seed=42):
     return main_net, logs
 
 
-# ── evaluation ────────────────────────────────────────────────────────────────
+# evaluation 
 def evaluate(model, shaped_reward=False, n_episodes=500):
-    """
-    Run the trained DQN agent with no exploration and report:
-      1. Average reward     (metric 1)
-      2. Win rate           (metric 2)
-      3. Average steps      (metric 3)
-      4. Inference time     (3 pts on rubric)
-    """
     import time
     env     = HamsterEnv(grid_size=5, shaped_reward=shaped_reward)
     model.eval()
@@ -283,7 +228,7 @@ def evaluate(model, shaped_reward=False, n_episodes=500):
         "avg_inference_ms": round(float(np.mean(times)) * 1000, 4),
     }
 
-    print("\n── DQN Eval ────────────────────────────────")
+    print("\n DQN Eval")
     for k, v in results.items():
         print(f"  {k:<22}: {v}")
 
@@ -300,12 +245,12 @@ def load_model(path, obs_dim):
     return model
 
 
-# ── run ───────────────────────────────────────────────────────────────────────
+# main
 if __name__ == "__main__":
-    print("Training DQN (sparse reward) ...")
+    print("Training DQN (sparse reward)")
     model, logs = train(shaped_reward=False)
     evaluate(model)
 
-    print("\nTraining DQN (shaped reward) ...")
+    print("\nTraining DQN (shaped reward)")
     model_shaped, logs_shaped = train(shaped_reward=True)
     evaluate(model_shaped, shaped_reward=True)

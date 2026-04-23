@@ -50,7 +50,7 @@ def smooth(values, window=500):
     return smoothed
 
 
-# ── 1. plot learning curves ───────────────────────────────────────────────────
+# plot learning curves 
 def plot_learning_curves():
     """
     Load all 4 training logs and plot reward over episodes.

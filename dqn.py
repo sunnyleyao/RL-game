@@ -29,13 +29,8 @@ from collections import deque
 import random
 from hamster_env import HamsterEnv
 
-
-# ── check if GPU is available ─────────────────────────────────────────────────
-# this covers "trained using GPU/TPU/CUDA" (3 pts) -- falls back to CPU if no GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-# ── settings ──────────────────────────────────────────────────────────────────
 EPISODES      = 50000
 LR            = 5e-4    # lower LR = more stable training
 GAMMA         = 0.95
@@ -48,7 +43,6 @@ TARGET_UPDATE = 100     # update target network more frequently
 MAX_STEPS     = 200
 
 
-# ── Q-Network (the neural network that replaces the Q-table) ──────────────────
 class QNetwork(nn.Module):
     """
     A simple 3-layer MLP.

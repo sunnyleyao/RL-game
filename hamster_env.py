@@ -96,10 +96,9 @@ class HamsterEnv(gym.Env):
         self.steps       = None
         self.items_left  = None
 
-    # ── private helpers ───────────────────────────────────────────────────────
 
     def _random_pos(self, exclude: set):
-        """Return a random (row, col) not in exclude."""
+
         while True:
             r = int(self.np_random.integers(0, self.grid_size))
             c = int(self.np_random.integers(0, self.grid_size))
@@ -113,7 +112,7 @@ class HamsterEnv(gym.Env):
         n_tape   = 1
         n_stack  = 1
 
-        taken = {(0, 0)}   # hamster start position
+        taken = {(0, 0)}   # start position
 
         for _ in range(n_seeds):
             r, c = self._random_pos(taken)
@@ -186,15 +185,14 @@ class HamsterEnv(gym.Env):
                     min_d = min(min_d, abs(r - row) + abs(c - col))
         return min_d if min_d != float("inf") else 0
 
-    # ── Gymnasium API ─────────────────────────────────────────────────────────
-
+    # Gymnasium API
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        self.grid        = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
+        self.grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
         self.hamster_pos = (0, 0)
-        self.score       = 50      # give agent enough steps to find rewards before dying
-        self.steps       = 0
+        self.score = 50      # give agent enough steps to find rewards before dying
+        self.steps = 0
 
         self._place_items()
 
@@ -202,7 +200,7 @@ class HamsterEnv(gym.Env):
 
     def step(self, action: int):
         r, c = self.hamster_pos
-        g    = self.grid_size
+        g = self.grid_size
 
         # movement (wall blocking — stay in place if out of bounds)
         dr, dc = [(-1, 0), (1, 0), (0, -1), (0, 1)][action]
@@ -279,25 +277,3 @@ class HamsterEnv(gym.Env):
     def close(self):
         pass
 
-
-# ── sanity check ──────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    env = HamsterEnv(grid_size=5, shaped_reward=False)
-    obs, info = env.reset(seed=0)
-
-    print(f"Obs shape : {obs.shape}")
-    print(f"Info      : {info}\n")
-    env.render()
-
-    total_reward = 0.0
-    for _ in range(100):
-        action = env.action_space.sample()
-        obs, reward, done, truncated, info = env.step(action)
-        total_reward += reward
-        if done or truncated:
-            print(f"Episode ended — total reward: {total_reward:.1f}")
-            print(f"Final info: {info}")
-            break
-
-    env.close()
-    print("\nSanity check passed ✓")

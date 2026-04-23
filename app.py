@@ -19,55 +19,115 @@ import pickle
 import torch
 import time
 import os
+import base64
 
 from hamster_env import HamsterEnv, EMPTY, SEED, MAGIC, TAPE, STACK
 from q_learning import get_state, get_q_values, MAX_STEPS
 from dqn import QNetwork, load_model, device
 
-#page
+# ── page config 
 st.set_page_config(
     page_title="🐹 Tiny Survivor",
     page_icon="🐹",
     layout="centered",
 )
 
+# ── global styles ─────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  /* warm parchment background */
+  .stApp { background-color: #fdf6e3; }
+
+  /* sidebar */
+  [data-testid="stSidebar"] { background-color: #fef9f0; border-right: 2px solid #e8d5b7; }
+
+  /* title */
+  h1 { color: #7b4f2e !important; letter-spacing: 1px; }
+
+  /* section headers */
+  h3 { color: #9b6b3a !important; }
+
+  /* metric cards */
+  [data-testid="stMetricValue"] { font-size: 2rem !important; color: #7b4f2e !important; }
+  [data-testid="stMetricLabel"] { color: #a0785a !important; font-weight: 600 !important; }
+
+  /* legend card */
+  .legend-card {
+    background: #fff8ec;
+    border: 2px solid #e8d5b7;
+    border-radius: 12px;
+    padding: 12px 20px;
+    margin-top: 10px;
+    line-height: 2;
+  }
+
+  /* run button */
+  [data-testid="stSidebar"] .stButton > button {
+    background-color: #c77b3b;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    width: 100%;
+    padding: 10px;
+    transition: background 0.2s;
+  }
+  [data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #a0602c;
+    color: white;
+  }
+
+  /* divider */
+  hr { border-color: #e8d5b7; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── header ────────────────────────────────────────────────────────────────────
 st.title("🐹 Tiny Survivor")
 st.markdown("""
-Help me! I’m Toto, and I’m stuck in this box.
-Watch me explore, collect seeds and Helsius Energy Drink,
-and dodge the cat’s paw and the bin.
-Cheer for me!
+*Help me! I'm **Toto**, and I'm stuck in this box.*
+Watch me explore, collect seeds and Helsius Energy Drink, and dodge the cat's paw and the bin. **Cheer for me!**
 
-Win condition: collect all seeds and magic before score hits 0.
+**Win condition:** collect all seeds & magic before score hits 0.
 """)
+st.divider()
 
-# sidebar controls
-st.sidebar.header("Settings")
+# sidebar controls 
+with st.sidebar:
+    st.markdown("## Settings")
+    st.divider()
 
-agent_choice = st.sidebar.radio(
-    "Choose agent:",
-    ["Q-Learning", "DQN"],
-)
+    agent_choice = st.radio(
+        "Agent",
+        ["Q-Learning", "DQN"],
+        help="Q-Learning uses a lookup table; DQN uses a neural network.",
+    )
 
-reward_choice = st.sidebar.radio(
-    "Reward type:",
-    ["Sparse", "Shaped"],
-)
+    reward_choice = st.radio(
+        "Reward type",
+        ["Sparse", "Shaped"],
+        help="Sparse: only win/lose rewards. Shaped: step-by-step hints.",
+    )
 
-speed = st.sidebar.slider(
-    "Playback speed (steps/sec)",
-    min_value=1, max_value=10, value=4
-)
+    st.divider()
 
-episode_seed = st.sidebar.number_input(
-    "Episode seed (controls map layout)",
-    min_value=0, max_value=9999, value=42
-)
+    speed = st.slider(
+        "Playback speed (steps/sec)",
+        min_value=1, max_value=10, value=4,
+    )
 
-run_button = st.sidebar.button("▶ Run Episode")
+    episode_seed = st.number_input(
+        "Episode seed",
+        min_value=0, max_value=9999, value=42,
+        help="Controls the random map layout.",
+    )
+
+    st.divider()
+    run_button = st.button("▶ Run Episode")
 
 
-# ── load models (cached so we don't reload every frame) ──────────────────────
+#  load models (cached so we don't reload every frame)
 @st.cache_resource
 def load_ql(variant):
     path = f"q_table_{variant}.pkl"
@@ -85,64 +145,51 @@ def load_dqn(variant):
     return load_model(path, obs_dim)
 
 
-# draw the grid
-import base64
-
+# grid renderer
 def load_img_base64(path):
-    """Convert local image to base64 so it can be embedded in HTML."""
     with open(path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
     ext = path.split(".")[-1]
     return f"data:image/{ext};base64,{data}"
 
-def draw_grid(grid, hamster_pos, use_images=False):
-    """
-    Render the 5x5 grid as an HTML table.
+def draw_grid(grid, hamster_pos):
+    CELL_IMG = {
+        EMPTY: load_img_base64("assets/empty.png"),
+        SEED:  load_img_base64("assets/seed.png"),
+        MAGIC: load_img_base64("assets/magic.png"),
+        TAPE:  load_img_base64("assets/tape.png"),
+        STACK: load_img_base64("assets/stack.png"),
+    }
+    HAMSTER_B64 = load_img_base64("assets/hamster.png")
 
-    use_images=False  -> uses emojis (default, no setup needed)
-    use_images=True   -> uses your own images from assets/ folder
-                         just drop your png files in assets/ and set this to True
-    """
-    if use_images:
-        CELL_IMG = {
-            EMPTY: load_img_base64("assets/empty.png"),
-            SEED:  load_img_base64("assets/seed.png"),
-            MAGIC: load_img_base64("assets/magic.png"),
-            TAPE:  load_img_base64("assets/tape.png"),
-            STACK: load_img_base64("assets/stack.png"),
-        }
-        HAMSTER_B64 = load_img_base64("assets/hamster.png")
-
-        def cell_content(cell_type, is_hamster):
-            if is_hamster:
-                return f'<img src="{HAMSTER_B64}" width="100" height="100" style="object-fit:contain;">'
-            src = CELL_IMG.get(cell_type, CELL_IMG[EMPTY])
-            return f'<img src="{src}" width="100" height="100" style="object-fit:contain;">'
-    else:
-        CELL_EMOJI = {
-            EMPTY: "⬜",
-            SEED:  "🌱",
-            MAGIC: "✨",
-            TAPE:  "📼",
-            STACK: "🪨",
-        }
-        def cell_content(cell_type, is_hamster):
-            if is_hamster:
-                return "🐹"
-            return CELL_EMOJI.get(cell_type, "⬜")
+    def cell_content(cell_type, is_hamster):
+        if is_hamster:
+            return f'<img src="{HAMSTER_B64}" width="90" height="90" style="object-fit:contain;">'
+        src = CELL_IMG.get(cell_type, CELL_IMG[EMPTY])
+        return f'<img src="{src}" width="90" height="90" style="object-fit:contain;">'
 
     html = """
     <style>
-      table.hamster { border-collapse: collapse; margin: auto; }
-      table.hamster td {
-        width: 110px; height: 110px;
-        text-align: center; font-size: 28px;
-        border: 3px solid #d4b896;
-        background: #fdf6e3;
-        border-radius: 8px;
-        padding: 5px;
+      table.hamster {
+        border-collapse: separate;
+        border-spacing: 6px;
+        margin: auto;
       }
-      table.hamster td.hamster-cell { background: #ffe0b2; }
+      table.hamster td {
+        width: 100px; height: 100px;
+        text-align: center; font-size: 32px;
+        border: 2px solid #d4b896;
+        background: #fffdf7;
+        border-radius: 12px;
+        padding: 4px;
+        box-shadow: 2px 2px 4px rgba(0,0,0,0.08);
+        transition: background 0.2s;
+      }
+      table.hamster td.hamster-cell {
+        background: #ffe0b2;
+        border-color: #c77b3b;
+        box-shadow: 0 0 8px rgba(199,123,59,0.35);
+      }
     </style>
     <table class="hamster">
     """
@@ -158,26 +205,40 @@ def draw_grid(grid, hamster_pos, use_images=False):
     return html
 
 
-# ── main episode runner ───────────────────────────────────────────────────────
+# ── legend ────────────────────────────────────────────────────────────────────
+def show_legend():
+    st.markdown("""
+<div class="legend-card">
+<b>Legend</b><br>
+🐹 <b>Toto</b> &nbsp;|&nbsp;
+🌱 <b>Seed</b> +5 &nbsp;|&nbsp;
+✨ <b>Magic</b> +10 &nbsp;|&nbsp;
+📼 <b>Tape</b> −5 &nbsp;|&nbsp;
+🪨 <b>Stack</b> −5 &nbsp;|&nbsp;
+⬜ Empty
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── episode runner
 def run_episode(agent_type, model_or_table, shaped, seed, delay):
-    """
-    Run one episode step by step, updating the Streamlit UI each step.
-    """
     env = HamsterEnv(grid_size=5, shaped_reward=shaped)
     obs, info = env.reset(seed=int(seed))
 
-    # placeholders so we can update them in place each step
     grid_placeholder  = st.empty()
-    stats_placeholder = st.empty()
-    log_placeholder   = st.empty()
 
-    ACTION_NAMES = ["⬆ up", "⬇ down", "⬅ left", "➡ right"]
-    step_log     = []
-    total_r      = 0.0
+    col1, col2, col3 = st.columns(3)
+    step_metric  = col1.empty()
+    score_metric = col2.empty()
+    items_metric = col3.empty()
+
+    log_placeholder = st.empty()
+
+    ACTION_NAMES = ["⬆ Up", "⬇ Down", "⬅ Left", "➡ Right"]
+    step_log = []
+    total_r  = 0.0
 
     for step in range(MAX_STEPS):
-
-        # get action from agent
         if agent_type == "ql":
             s      = get_state(obs)
             action = int(np.argmax(get_q_values(model_or_table, s)))
@@ -186,55 +247,52 @@ def run_episode(agent_type, model_or_table, shaped, seed, delay):
             with torch.no_grad():
                 action = int(model_or_table(s_t).argmax().item())
 
-        # draw current state BEFORE taking the step
-        state  = env.get_state()
-        html   = draw_grid(state["grid"], state["hamster_pos"], use_images=True)
-        grid_placeholder.markdown(html, unsafe_allow_html=True)
+        state = env.get_state()
+        grid_placeholder.markdown(
+            draw_grid(state["grid"], state["hamster_pos"]),
+            unsafe_allow_html=True,
+        )
 
-        stats_placeholder.markdown(f"""
-        | Step | Score | Items Left |
-        |------|-------|------------|
-        | {state['steps']} | {state['score']} | {state['items_left']} |
-        """)
+        step_metric.metric("Step",       state["steps"])
+        score_metric.metric("Score",     state["score"])
+        items_metric.metric("Items Left", state["items_left"])
 
-        # take the step
         obs, reward, done, truncated, info = env.step(action)
         total_r += reward
 
-        step_log.append(f"Step {step+1}: {ACTION_NAMES[action]}  |  reward: {reward:+.0f}  |  score: {info['score']}")
-
-        # show last 5 steps in the log
-        log_placeholder.code("\n".join(step_log[-5:]))
+        step_log.append(
+            f"Step {step+1:>3}  {ACTION_NAMES[action]:<10}  "
+            f"reward: {reward:+.0f}   score: {info['score']}"
+        )
+        log_placeholder.code("\n".join(step_log[-6:]), language=None)
 
         time.sleep(1.0 / delay)
-
         if done or truncated:
             break
 
-    # draw final state
+    # final frame
     final_state = env.get_state()
     grid_placeholder.markdown(
-        draw_grid(final_state["grid"], final_state["hamster_pos"], use_images=True),
-        unsafe_allow_html=True
+        draw_grid(final_state["grid"], final_state["hamster_pos"]),
+        unsafe_allow_html=True,
     )
     env.close()
 
-    # result banner
+    st.divider()
     if info.get("win"):
-        st.success(f"🎉 Win! Final score: {info['score']}  |  Total reward: {total_r:.1f}")
+        st.success(f"🎉 **Toto wins!**  Final score: {info['score']}  |  Total reward: {total_r:.1f}")
     elif info.get("lose"):
-        st.error(f"💀 Lost (score hit 0). Total reward: {total_r:.1f}")
+        st.error(f"💀 **Toto lost** (score hit 0).  Total reward: {total_r:.1f}")
     else:
-        st.warning(f"⏱ Time limit reached. Items left: {info['items_left']}. Total reward: {total_r:.1f}")
+        st.warning(f"⏱ **Time limit reached.**  Items left: {info['items_left']}  |  Total reward: {total_r:.1f}")
 
     return total_r, info
 
 
-# ── main UI logic ─────────────────────────────────────────────────────────────
-variant = reward_choice.lower()   # "sparse" or "shaped"
+# ── main UI
+variant = reward_choice.lower()
 
 if run_button:
-    # load the selected agent
     if agent_choice == "Q-Learning":
         model = load_ql(variant)
         atype = "ql"
@@ -243,36 +301,26 @@ if run_button:
         atype = "dqn"
 
     if model is None:
-        st.error(f"Model file not found. Please train the {agent_choice} agent first by running:")
+        st.error(f"Model file not found for **{agent_choice}** ({reward_choice}). Train it first:")
         if agent_choice == "Q-Learning":
             st.code("python q_learning.py")
         else:
             st.code("python dqn.py")
     else:
-        st.subheader(f"Running: {agent_choice} ({reward_choice} reward)  |  Seed: {episode_seed}")
+        st.markdown(f"### {agent_choice} · {reward_choice} reward · Seed {episode_seed}")
         shaped = (variant == "shaped")
         run_episode(atype, model, shaped, episode_seed, speed)
 
 else:
-    # show a placeholder grid before the user presses run
-    st.markdown("### Press ▶ Run Episode to start")
+    st.markdown("### Press **▶ Run Episode** in the sidebar to start!")
 
     env = HamsterEnv(grid_size=5)
     obs, _ = env.reset(seed=int(episode_seed))
     state  = env.get_state()
     st.markdown(
-        draw_grid(state["grid"], state["hamster_pos"], use_images=True),
-        unsafe_allow_html=True
+        draw_grid(state["grid"], state["hamster_pos"]),
+        unsafe_allow_html=True,
     )
     env.close()
 
-    st.markdown("""
-    ---
-    **Legend:**
-    🐹 Hamster &nbsp;&nbsp;
-    🌱 Seed (+5) &nbsp;&nbsp;
-    ✨ Magic (+10) &nbsp;&nbsp;
-    📼 Tape (-5) &nbsp;&nbsp;
-    🪨 Stack (-5) &nbsp;&nbsp;
-    ⬜ Empty
-    """)
+    show_legend()

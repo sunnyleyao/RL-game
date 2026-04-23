@@ -34,8 +34,8 @@ And you can run all cells in order to see all plots and evaluation results.
 5. If you want to re-train the model, you can train in the terminal.
 
 ```bash
-python q_learning.py   # ~10 min
-python dqn.py          # ~30 min on CPU
+python q_learning.py  
+python dqn.py  
 ```
 
 

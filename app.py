@@ -16,14 +16,21 @@ To run:
 import streamlit as st
 import numpy as np
 import pickle
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+
 import time
 import os
 import base64
 
 from hamster_env import HamsterEnv, EMPTY, SEED, MAGIC, TAPE, STACK
 from q_learning import get_state, get_q_values, MAX_STEPS
-from dqn import QNetwork, load_model, device
+if TORCH_AVAILABLE:
+    from dqn import QNetwork, load_model, device
 
 # ── page config 
 st.set_page_config(

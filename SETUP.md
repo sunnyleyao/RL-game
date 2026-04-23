@@ -1,7 +1,7 @@
 ## Requirements
-Python 3.11
-pip
-No external APIs required for my project.
+Python 3.11  
+pip  
+No external APIs required for my project.  
 
 ## Installation
 

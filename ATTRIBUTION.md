@@ -92,7 +92,7 @@ I wrote main simulation loop structure with running multiple episodes, tracking 
 
 ## `app.py`
 
-**What Claude generated:**
+**What AI did**
 The Streamlit app skeleton and the `draw_grid()` HTML table renderer.
 
 **What I did**
@@ -102,6 +102,15 @@ I integrated my hand-drawn assets via base64 encoding, replacing the emoji versi
 
 Initially, I tried to use Streamlit Cloud to make the website public. But Streamlit Cloud used Python 3.14 which doesn't support torch.
 So I spent significant time debugging this before deciding to keep the app local-only.
+
+## `analysis.ipynb`
+
+**What AI did**
+Generated the code of plotting.
+
+**What I did**
+I decided what each sections should be included in the analysis and what kind of plot should be used.
+
 
 ---
 

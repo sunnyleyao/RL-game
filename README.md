@@ -35,8 +35,6 @@ All agents were evaluated over 500 greedy episodes (no exploration) after traini
 | **DQN — win rate** | 31.8% | 44.8% |
 | **DQN — avg steps** | 45.47 | 40.68 |
 
-Inference time: Q-Learning ~0.001ms per step, DQN ~0.027ms per step.
-
 ---
 
 **Q-Learning outperforms DQN on this task.** With sparse reward, Q-Learning achieves 52.2% win rate, while DQN's 31.8%. The gap narrows with shaped reward (58.4% vs 44.8%), but Q-Learning always wins. DQN is designed for more complex tasks.
